@@ -99,7 +99,6 @@ def propose_fix(state:AgentState):
 
 def ask_for_approval(state:AgentState):
     """Ask for human approval of the proposed fix."""
-    # This function can be implemented to send the proposed fix to a human for approval.
     decision = interrupt({
         "type": "approval_request",
         "message": "Do you approve the proposed fix?",
