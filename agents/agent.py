@@ -81,7 +81,7 @@ def ask_for_approval(state:AgentState):
         "proposed_fix": state.proposed_results.proposed_fix,
         "proposed_fix_code": state.proposed_results.proposed_fix_code,
         "explanation": state.proposed_results.explanation,
-        "changes": state.proposed_results.changes
+        "patch": state.proposed_results.patch
     })
     approved = str(decision).strip().lower() in ("y", "yes", "approve", "approved")
     return {"approved": approved}
@@ -141,6 +141,7 @@ if "__interrupt__" in result:
     print("\nConfidence:",payload["confidence"],"\n")
     print("\nProposed_fix:\n",payload["proposed_fix"])
     print("\nExplanation:",payload["explanation"],"\n")
+    print("\nPatch: ",payload["patch"],"\n")
 
     decision = input("Approve? (y/n): ").strip()
     result = graph.invoke(Command(resume=decision),config=config)

@@ -8,7 +8,9 @@ class ProposedResult(BaseModel):
     proposed_fix: str
     proposed_fix_code: str
     explanation: str
-    changes: str
+    patch:str = Field(
+        description="Unified diff that can be applied with git apply"
+    )
 
 
 class ErrorReport(BaseModel):
