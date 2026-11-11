@@ -4,12 +4,15 @@ from utils.github import g, user, repo
 from langchain.tools import tool
 
 def _normalize_path(p: str) -> str:
-    p = p.strip().lstrip("/")
-    # strip a leading repo-name segment if present
+    p = (p or "").strip().lstrip("/")
     repo_name = os.getenv("TARGET_REPO", "").split("/")[-1]
-    if repo_name and p.startswith(repo_name + "/"):
-        p = p[len(repo_name) + 1:]
+    if repo_name:
+        if p == repo_name:
+            return ""
+        if p.startswith(repo_name + "/"):
+            p = p[len(repo_name) + 1:]
     return p
+
 
 
 @tool
@@ -124,8 +127,6 @@ def list_directory(path:str):
     contents = repo.get_contents(path)
     if not isinstance(contents, list):
         return [{"error": f"Path '{path}' is not a directory"}]
-    if contents is None or contents.type != "dir":
-        raise ValueError(f"Path '{path}' is not a valid directory in the repository.")
     
     results = []
     for content_file in contents:
@@ -156,6 +157,9 @@ def find_files_by_content(directory:str,keywords:list):
     results = []
     contents = repo.get_contents(directory)
 
+    if not isinstance(contents,list):
+        return [{"error": f"No files present with the given keywords in the repo"}]
+
     for content_file in contents:
         if content_file.type == "file":
             data = content_file.decoded_content.decode("utf-8")
@@ -176,13 +180,19 @@ def find_files_by_name(directory:str,keywords:list):
     A list of file paths that match the given keywords.
     """
     results = []
-    contents = repo.get_contents(directory)
+    try:
+        contents = repo.get_contents(directory)
+        if not isinstance(contents,list):
+            return [{"error": f"No files with this name present"}]
 
-    for content_file in contents:
-        if content_file.type == "file":
-            if any(keyword.lower() in content_file.name.lower() for keyword in keywords):
-                results.append(content_file.path)
-    return results
+        for content_file in contents:
+            if content_file.type == "file":
+                if any(keyword.lower() in content_file.name.lower() for keyword in keywords):
+                    results.append(content_file.path)
+        return results
+    except Exception:
+        return [{"error":f"{Exception}"}]
+
 
 
 @tool

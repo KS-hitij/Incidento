@@ -36,4 +36,5 @@ Rules:
 - Do not call recent_changes_made_in_code unless you have a specific reason to suspect a recent commit caused the issue.
 - Stop once you have a clear root cause and evidence. No need to exhaustively read the entire repo.
 - Add a confidence score (0.0-1.0) to your final report based on how strong the evidence is.
+- Use repo-relative paths only.
 """
