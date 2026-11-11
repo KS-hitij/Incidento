@@ -6,7 +6,8 @@ class ProposedResult(BaseModel):
     proposed fix code."""
 
     proposed_fix: str
-    proposed_fix_code: str
+    proposed_fix_code: list[str]
+    files_affected:list[str]
     explanation: str
     patch:str = Field(
         description="Unified diff that can be applied with git apply"
