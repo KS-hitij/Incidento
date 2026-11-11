@@ -186,42 +186,66 @@ def find_files_by_name(directory:str,keywords:list):
 
 
 @tool
-def get_snippet(file_path:str, start_line:int, end_line:int,context:int=15):
-    """Returns a snippet of the specified file in the repository, from start_line to end_line (inclusive).
-    Use this tool to get a snippet of a file in the repository, with optional context lines before and after the specified range.
+def get_snippet(file_path: str, start_line: int, end_line: int, context: int = 5):
+    """Returns a numbered window of lines around the requested range.
+
     Arguments:
-    file_path: The path to the file in the repository.
-    start_line: The starting line number (1-based index).
-    end_line: The ending line number (1-based index).
-    context: The number of context lines to include before and after the specified range.
+    file_path: Path to the file in the repository.
+    start_line: Starting line number (1-based, inclusive).
+    end_line: Ending line number (1-based, inclusive).
+    context: Number of lines to include before and after the range.
     Returns:
-    A dictionary containing the file path, line numbers, total lines, and the snippet lines.
+    A dictionary with requested bounds, actual snippet bounds, total lines,
+    and numbered snippet lines.
     """
     file_path = _normalize_path(file_path)
-    raw = repo.get_contents(file_path).decoded_content
+
+    if not repo:
+        return {"file_path": file_path, "error": "TARGET_REPO not set"}
+
+    try:
+        content_file = repo.get_contents(file_path)
+    except Exception as e:
+        return {"file_path": file_path, "error": f"could not read file: {e}"}
+
+    if isinstance(content_file, list):
+        return {"file_path": file_path, "error": "path is a directory, not a file"}
+
+    raw = content_file.decoded_content
     if raw is None:
-        raise ValueError(f"Can not read binary/large file: {file_path}")
-    content = raw.decode("utf-8")
-    lines = content.splitlines()
+        return {"file_path": file_path, "error": "binary or too-large file"}
 
-    if lines is None or len(lines) == 0:
-        raise ValueError(f"File is empty or could not be read: {file_path}")
-    
-    # Adjust for 1-based index
-    start_index = max(start_line -  context, 1)
-    end_index = min(end_line + context, len(lines))
+    lines = raw.decode("utf-8", errors="replace").splitlines()
+    total = len(lines)
 
-    if start_index > end_index:
-        raise ValueError(f"Invalid line range: start_line ({start_line}) is greater than end_line ({end_line})")
-    
-    snippet_lines = [{"line_number": i + 1, "content": lines[i]} for i in range(start_index - 1, end_index)]
-    
-    return{
+    if total == 0:
+        return {"file_path": file_path, "error": "file is empty"}
+
+    if start_line < 1 or end_line < 1 or start_line > end_line:
+        return {"file_path": file_path, "error": "invalid line range"}
+
+    if start_line > total or end_line > total:
+        return {
+            "file_path": file_path,
+            "error": f"line range out of bounds (file has {total} lines)",
+        }
+
+    snippet_start = max(1, start_line - context)
+    snippet_end = min(total, end_line + context)
+
+    snippet_lines = [
+        {"line": i, "text": lines[i - 1]}
+        for i in range(snippet_start, snippet_end + 1)
+    ]
+
+    return {
         "file_path": file_path,
-        "start_line": start_line,
-        "end_line": end_line,
-        "total_lines": len(lines),
-        "snippet_lines": snippet_lines
+        "requested_start_line": start_line,
+        "requested_end_line": end_line,
+        "snippet_start_line": snippet_start,
+        "snippet_end_line": snippet_end,
+        "total_lines": total,
+        "snippet_lines": snippet_lines,
     }
 
 
