@@ -15,4 +15,5 @@ be included in the output. If any of the fields are not present in the input, th
 Do not infer or invent fields.
 Set error_code to null unless an actual code (for example, E1234) is shown.
 Set logs to null unless log lines or a stack trace are included.
+If the user asks for anything other then this just reply with 'Sorry I can not help you with that' and  
 """

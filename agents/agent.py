@@ -28,6 +28,10 @@ serde = JsonPlusSerializer(
     ]
 )
 
+class InputValidation(BaseModel):
+    is_production_error: bool
+    reason: str | None = None
+
 
 class AgentState(BaseModel):
     messages: list[dict] = []
@@ -39,19 +43,44 @@ class AgentState(BaseModel):
     repo_name: str | None = None
     candidate_files: list[str] | None = None
     approved: bool | None = None
-
+    status: str | None = None
+    rejected_reason: str | None = None
 
 def intake_and_validate(state: AgentState):
     """Intake and validate the input messages and produce a structured
     report of the error details provided by human"""
     # if state.repo_name is None:
     #     raise ValueError("Repository name is missing.")
+
+    validation = model.with_structured_output(InputValidation).invoke([
+        {"role": "system", "content":
+            "Classify whether the user input is a software error report. "
+            "Return is_production_error=true if it contains any of: an error code, "
+            "exception, stack trace, HTTP failure, compile/type error, lint error, "
+            "build failure, or concrete runtime failure. "
+            "The input may be a raw JSON diagnostic from an IDE or CI tool. "
+            "Return false only for greetings, questions, or unrelated text."},
+        {"role": "user", "content": state.messages[-1]["content"]},
+    ])
+
+
+    if not validation.is_production_error:
+        return {
+            "error_report": None,
+            "status": "rejected",
+            "rejection_reason": validation.reason or "Input is not a production error report.",
+        }
+    
     messages = [
         {"role": "system", "content": system_prompt},
         *state.messages,
     ]
     error_report = model.with_structured_output(ErrorReport).invoke(messages)
     return {"error_report": error_report}
+
+
+def route_after_intake(state: AgentState):
+    return END if state.status == "rejected" else "investigate_error_files"
 
 
 def investigate_error_files(state:AgentState):
@@ -98,7 +127,11 @@ graph.add_node("investigate_error_files", investigate_error_files)
 graph.add_node("propose_fix", propose_fix)
 graph.add_node("ask_for_approval", ask_for_approval)
 graph.add_edge(START, "intake_and_validate")
-graph.add_edge("intake_and_validate", "investigate_error_files")
+graph.add_conditional_edges(
+    "intake_and_validate",
+    route_after_intake,
+    {"investigate_error_files": "investigate_error_files", END: END},
+)
 graph.add_edge("investigate_error_files", "propose_fix")
 graph.add_edge("propose_fix", "ask_for_approval")
 graph.add_edge("ask_for_approval", END)
@@ -133,6 +166,7 @@ result = graph.invoke(
     },
     config=config,
 )
+
 if "__interrupt__" in result:
     print("The process was interrupted. Please check the interrupt details.")
     payload = result["__interrupt__"][0].value
