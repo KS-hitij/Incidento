@@ -301,3 +301,24 @@ def get_file_changes(sha:str):
             "changes": file.changes
         })
     return results
+
+@tool
+def create_branch(branch_name:str):
+    """Creates a separate branch for the fix that is to be applied to the code
+    Arguments:
+    branch_name: Name of the new branch to be created
+    """
+    main_branch = repo.get_branch('main')
+    try:
+        repo.create_git_ref(
+            ref = f'refs/heads/{branch_name}',
+            sha= main_branch.commit.sha
+        )
+    except Exception:
+        return [{"error": f"Branch could not be created successfully\nError details: {Exception}"}]
+    branches = repo.get_branches()
+    for branch in branches:
+        if(branch_name in branch.name):
+            return "Branch Created Successfully"
+        
+    return [{"error": f"Branch could not be created successfully"}]
