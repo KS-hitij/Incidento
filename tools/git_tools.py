@@ -307,6 +307,8 @@ def create_branch(branch_name:str):
     """Creates a separate branch for the fix that is to be applied to the code
     Arguments:
     branch_name: Name of the new branch to be created
+    Returns:
+    A message telling that the branch was created successfully
     """
     main_branch = repo.get_branch('main')
     try:
