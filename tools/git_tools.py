@@ -308,7 +308,7 @@ def create_branch(branch_name:str):
     Arguments:
     branch_name: Name of the new branch to be created
     Returns:
-    A message telling that the branch was created successfully
+    A dictionary containing success,branch_name,branch_sha,created_from
     """
     main_branch = repo.get_branch('main')
     try:
@@ -317,10 +317,21 @@ def create_branch(branch_name:str):
             sha= main_branch.commit.sha
         )
     except Exception:
-        return [{"error": f"Branch could not be created successfully\nError details: {Exception}"}]
+        return {
+            "success":False,
+            "error_details": Exception
+            }
     branches = repo.get_branches()
     for branch in branches:
         if(branch_name in branch.name):
-            return "Branch Created Successfully"
+            return {
+                "success":True,
+                "branch_name":branch_name,
+                "branch_sha":branch.commit.sha,
+                "created_from":main_branch.name
+            }
         
-    return [{"error": f"Branch could not be created successfully"}]
+    return {
+        "success":False,
+        "error": f"Branch not found after creation"
+        }
