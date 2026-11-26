@@ -5,6 +5,7 @@ from langchain.tools import tool
 import subprocess
 import sys
 from pathlib import Path
+import tempfile
 
 def _normalize_path(p: str) -> str:
     p = (p or "").strip().lstrip("/")
@@ -394,6 +395,61 @@ def shallow_clone(workdir:str):
             "error": e.stderr
         }
 
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@tool
+def apply_patch(workdir:str,patch:str):
+    """
+    Applies a unified diff patch to the repository.
+    
+    Arguments:
+        workdir: Local repository path.
+        patch: Unified diff string.
+    
+    Returns:
+        A dict containing success status and changed files.
+    """
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".patch",
+            delete=False
+        ) as f:
+            f.write(patch)
+            patch_file = f.name
+        try:
+            subprocess.run(
+                ["git", "apply", "--check", patch_file],
+                cwd=workdir,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+            subprocess.run(
+                ["git", "apply", patch_file],
+                cwd=workdir,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        finally:
+            os.remove(patch_file)
+        result = subprocess.run(
+            ["git", "diff", "--name-only"],
+            cwd=workdir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return {
+            "success": True,
+            "changed_files": result.stdout.splitlines()
+        }
     except Exception as e:
         return {
             "success": False,
