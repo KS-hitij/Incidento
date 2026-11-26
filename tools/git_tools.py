@@ -2,6 +2,9 @@ from datetime import datetime, timedelta
 import os
 from utils.github import g, user, repo
 from langchain.tools import tool
+import subprocess
+import sys
+from pathlib import Path
 
 def _normalize_path(p: str) -> str:
     p = (p or "").strip().lstrip("/")
@@ -123,7 +126,6 @@ def list_directory(path:str):
     A list of dictionaries containing the name, path, type (file or directory), and size (if applicable) of each item in the directory.
     """
     path = _normalize_path(path)
-    print("Path in list directory: ",path)
     contents = repo.get_contents(path)
     if not isinstance(contents, list):
         return [{"error": f"Path '{path}' is not a directory"}]
@@ -334,4 +336,66 @@ def create_branch(branch_name:str):
     return {
         "success":False,
         "error": f"Branch not found after creation"
+        }
+
+@tool
+def shallow_clone(workdir:str):
+    """
+    Shallow clones the main branch of the target GitHub repository.
+
+    Arguments:
+        workdir: Local directory where the repo will be cloned
+
+    Returns:
+    Dictionary containing success, repo_path.
+    """
+    try:
+        name = repo.name
+
+        if not name:
+            return {
+                "success": False,
+                "error": "TARGET_REPO is not configured"
+            }
+
+        destination = Path(workdir).resolve()
+        
+        if destination.exists() and any(destination.iterdir()):
+            return {
+                "success": False,
+                "error": f"Directory is not empty: {destination}"
+            }
+        
+        destination.parent.mkdir(parents=True,exist_ok=True)
+
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth","1",
+                "--single branch",
+                "--branch", "main",
+                repo.clone_url,
+                str(destination)
+            ],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        return {
+            "success": True,
+            "repo_name": name,
+            "repo_path": str(destination)
+        }
+    
+    except subprocess.CalledProcessError as e:
+        return {
+            "success": False,
+            "error": e.stderr
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
         }
